@@ -74,6 +74,7 @@ resource "aws_iam_instance_profile" "self" {
 // Spin up an EC2 instance with the AMI
 resource "aws_instance" "self" {
   ami = "${data.aws_ami.hvm.id}"
+  #ami = "${data.aws_ami.amazon-ecs-optimized.id}"
   instance_type = "t2.micro"
   iam_instance_profile = "${aws_iam_instance_profile.self.name}"
 
@@ -133,8 +134,13 @@ YAML
       private_key = "${tls_private_key.self.private_key_pem}"
     }
     inline = [
+      "echo Verify system-docker can reach Instance Metadata...",
       "sudo system-docker exec network wget --spider -T 2 169.254.169.254",
+      "echo Verify docker can not reach Instance Metadata...",
       "docker run --rm busybox wget --spider -T 2 169.254.169.254 2>&1 | grep -q 'download timed out'",
+      "echo Waiting for healthy ecs-agent...",
+      "while ! docker ps | grep ecs-agent | grep -q healthy; do sleep 1; done",
+      "echo Verify host can reach Task Metadata Endpoint...",
       "wget http://169.254.170.2 2>&1 | grep -q '404 Not Found'"
     ]
   }
